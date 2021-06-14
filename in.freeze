@@ -1,0 +1,100 @@
+#############################
+# P R E L I M I N A R I E S #
+#############################
+
+variable Tmp equal 0.68
+
+units lj                  # Use reduced LJ style units
+atom_style atomic         # Uncharged point particles
+atom_modify map hash      # Needed for indexing of clusters etc
+
+
+lattice fcc 1.0 spacing 1 1 1
+region box block 0 10 0 10 0 10 units lattice
+create_box 1 box
+create_atoms 1 box
+
+variable ra uloop 250
+
+variable rand equal (25373+${ra})
+
+log cryst_t0760_r${rand}.log
+
+# Set the mass of the first (and only) atom type.
+mass 1 1.0
+
+# Lennard-Jones interactions between particles, 3.5 sigma cut-off. Apply
+# long range tail corrections to energy and pressure
+
+pair_style lj/cut  3.5      
+pair_modify tail yes
+pair_coeff 1  1  1.0  1.0
+
+#############################
+#   M E L T   S Y S T E M   #
+#############################
+velocity all create 2.4 41787 mom yes dist gaussian # Assign velocities
+
+timestep 0.002   # simulation timestep
+thermo 100       # output thermodynamic data every 100 steps
+
+fix 1 all npt temp 2.4 2.4 0.1 iso 5.0 5.0 0.5 mtk yes tchain 5 pchain 5
+
+run 10000         # run for 10000 steps
+
+fix 1 all npt temp 1.25 1.25 0.1 iso 5.68 5.68 0.5 mtk yes tchain 5 pchain 5
+run 1000
+fix 1 all npt temp 1.25 ${Tmp} 0.1 iso 5.68 5.68 0.5 mtk yes tchain 5 pchain 5
+run 2000
+
+
+#############################
+# F R E E Z E  S Y S T E M  #
+#############################
+
+# Define solid atoms. This closely follows ten Wolde  Ruiz-Montero and Frenkel  Faraday Discuss  1996  104  93-110
+# Compute components of the per-atom q6 vector
+compute q6 all orientorder/atom degrees 1 6 components 6 nnn NULL cutoff 1.3
+
+# get number of connections
+compute coord_number all coord/atom orientorder q6 0.5
+
+# An atom is solid if it has 8 or more connections
+variable is_solid atom c_coord_number>=8
+group solid dynamic all var is_solid    # Must be dynamic to update
+
+# do clustering
+compute cluster solid cluster/atom 1.3
+
+# define chunks  one chunk per cluster
+compute clus_chunks solid chunk/atom c_cluster
+
+# count the size of each chunk
+compute size_chunks solid property/chunk clus_chunks count
+
+# Find the maximum entry in the vector of chunk sizes
+variable max_n equal max(c_size_chunks)
+
+# Thermo style which includes this variable
+thermo_style custom step temp pe vol v_max_n
+
+thermo 100  # Print the thermo information every 100 steps
+
+# Reset the npt fix at a lower temperature (below freezing)
+fix 1  all npt temp  ${Tmp}  ${Tmp}  0.1  iso  5.0  5.0  0.5  mtk yes tchain  5  pchain  5
+
+run 1000000  # Run for this many steps
+
+
+clear 
+next ra
+jump SELF
+
+
+
+
+
+
+
+
+
