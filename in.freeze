@@ -18,7 +18,7 @@ variable ra uloop 250
 
 variable rand equal (25373+${ra})
 
-log cryst_t0760_r${rand}.log
+log cryst_t${Tmp}_r${rand}.log
 
 # Set the mass of the first (and only) atom type.
 mass 1 1.0
@@ -33,7 +33,7 @@ pair_coeff 1  1  1.0  1.0
 #############################
 #   M E L T   S Y S T E M   #
 #############################
-velocity all create 2.4 41787 mom yes dist gaussian # Assign velocities
+velocity all create 2.4 ${rand} mom yes dist gaussian # Assign velocities
 
 timestep 0.002   # simulation timestep
 thermo 100       # output thermodynamic data every 100 steps
